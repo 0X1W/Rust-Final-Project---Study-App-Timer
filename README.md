@@ -1,21 +1,27 @@
 Elementary System Programming | Final Project
+
 Team HMP - Study App Timer Project
+
 Members:
+
 69011442 - Peerapat Pooncharoen
   - UI developer
   - Theme changes
   - Misc. features handling and fn update()
   - fn view()
+
 69011443 - Peeraphad Khongchoom
   - StudyTimer Struct
   - Timer countdown, modes, setting changes logic/code
   - Most fn update() code
   - Unit testing
+    
 69011497 - Ruharn Audthanont
   - File handling for saving and loading
   - Formatting session content
   - Error handling
   - User settings changes
+
 
 Features:
   - Pomodoro Technique Study App: In default settings, focus study for 25 minutes, short break for 5 minutes, and then long break for 15 minutes every 4 intervals.
@@ -26,6 +32,7 @@ Features:
   - Change study settings and theme
 
 OS: Windows
+
 How to run: cargo run
 
 <img width="1022" height="796" alt="image" src="https://github.com/user-attachments/assets/0007e146-1aea-4587-a016-34af0a2bff2d" />
@@ -39,6 +46,7 @@ What we learned:
   - How to develop rust ui that updates in real time without user input (Applicantion)
   - How to develop countdown timer
   - Handle multiple screens
+
 Problems encountered:
   - Clock timer not properly syncing
   - Timer not counting down properly (sometimes it takes longer than 1 second to count down)
