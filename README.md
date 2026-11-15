@@ -48,6 +48,7 @@ What we learned:
   - Handle multiple screens
   - I learn to load and save data in txt file, while access the said data and format it and handling the error.
   - I also learn to make data interact with the GUI and at last I learn to fight with the "Compile error".
+  - I learnt how to create GUI using Iced library.
 
 Problems encountered:
   - Clock timer not properly syncing
@@ -56,3 +57,5 @@ Problems encountered:
   - Calculating session time
   - UI not updating when change the time in the settings
   - syntax error, trying to or figuring the way to save data while having the input to the text file corrupted (I mean save in a non-desired way), I also had a problem when I pull out the data and have to format it.
+  - I found it is much harder to create a perfectly beautiful GUI.
+
