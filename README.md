@@ -1,6 +1,6 @@
 Elementary System Programming | Final Project
 
-Team HMP - Study App Timer Project
+Team HMP - Study Timer App Project
 
 Members:
 
