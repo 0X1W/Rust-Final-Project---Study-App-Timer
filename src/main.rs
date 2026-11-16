@@ -8,6 +8,7 @@ use iced::{
 // Saved session file name
 const DATA_FILE: &str = "sessions.txt";
 
+//To check whether the GUI failed or not
 pub fn main() -> iced::Result {
     StudyTimer::run(Settings::default())
 }
@@ -37,6 +38,8 @@ struct StudyTimer {
     study_elapsed: Duration,
     session_name: String,
     person_name: String,
+    // True while the "Save this session?" prompt is shown
+    confirming_finish: bool,
 
     // History Page
     history: Vec<SessionRow>,
@@ -82,6 +85,9 @@ enum Message {
     Resume,
     Skip,
     Finish,
+    ConfirmSave,
+    Discard,
+    CancelFinish,
     NameChanged(String),
     PersonChanged(String),
     SettingChanged(Field, String),
@@ -103,6 +109,7 @@ impl Application for StudyTimer {
     type Theme = Theme;
     type Flags = ();
 
+    //create a new + Default set of time
     fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
         let act_min = 25;
         let short_min = 5;
@@ -127,6 +134,7 @@ impl Application for StudyTimer {
                 study_elapsed: Duration::from_secs(0),
                 session_name: String::new(),
                 person_name: String::new(),
+                confirming_finish: false,
                 history: load_sessions(),
                 status: String::new(),
                 act_input: act_min.to_string(),
@@ -141,12 +149,14 @@ impl Application for StudyTimer {
 
     fn update(&mut self, message: Self::Message) -> Command<Self::Message> {
         match message {
+            // Switch screen, if switch to history, reloads the sessions
             Message::Open(screen) => {
                 if screen == Screen::History {
                     self.history = load_sessions();
                 }
                 self.screen = screen;
             }
+            // Resume the timer
             Message::Resume => {
                 if self.is_running {
                     self.is_running = false;
@@ -162,8 +172,24 @@ impl Application for StudyTimer {
                     self.last_tick = Some(Instant::now());
                 }
             }
+            //skip = make the app finish counting and record the time
             Message::Skip => self.complete_mode(),
-            Message::Finish => self.finish_session(),
+            Message::Finish => {
+                // Pause and ask for confirmation
+                self.is_running = false;
+                self.last_tick = None;
+                self.confirming_finish = true;
+            }
+            Message::ConfirmSave => {
+                self.confirming_finish = false;
+                self.finish_session(true);
+            }
+            Message::Discard => {
+                self.confirming_finish = false;
+                self.finish_session(false);
+            }
+            Message::CancelFinish => self.confirming_finish = false,
+            //Set timer logic
             Message::Tick(now) => {
                 if self.is_running {
                     if let Some(last) = self.last_tick {
@@ -207,7 +233,7 @@ impl Application for StudyTimer {
             .center_y()
             .into()
     }
-    // Run the timer using iced subscription
+
     fn subscription(&self) -> Subscription<Message> {
         if self.is_running {
             time::every(Duration::from_millis(200)).map(Message::Tick)
@@ -237,16 +263,6 @@ impl StudyTimer {
         self.remaining = self.duration;
     }
 
-    fn begin_session(&mut self) {
-        self.session_active = true;
-        self.session_started = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        self.session_elapsed = Duration::from_secs(0);
-        self.study_elapsed = Duration::from_secs(0);
-        self.completed = 0;
-        self.status.clear();
-        self.set_mode(Mode::Study);
-    }
-
     fn complete_mode(&mut self) {
         match self.mode {
             Mode::Study => {
@@ -261,34 +277,6 @@ impl StudyTimer {
                 self.set_mode(Mode::Study);
             }
         }
-    }
-
-    fn finish_session(&mut self) {
-        self.is_running = false;
-        self.last_tick = None;
-
-        if self.session_active && self.session_elapsed.as_secs() >= 1 {
-            let row = SessionRow {
-                date: self.session_started.clone(),
-                person: clean(&self.person_name),
-                name: clean(&self.session_name),
-                session_min: to_minutes(self.session_elapsed),
-                study_min: to_minutes(self.study_elapsed),
-            };
-            self.status = match append_session(&row) {
-                Ok(()) => "Session saved.".to_string(),
-                Err(e) => format!("Save failed: {}", e),
-            };
-            self.history = load_sessions();
-        } else {
-            self.status = "Nothing to save yet.".to_string();
-        }
-
-        self.session_active = false;
-        self.session_elapsed = Duration::from_secs(0);
-        self.study_elapsed = Duration::from_secs(0);
-        self.completed = 0;
-        self.set_mode(Mode::Study);
     }
 
     fn change_setting(&mut self, field: Field, value: String) {
@@ -456,16 +444,39 @@ impl StudyTimer {
             .align_items(Alignment::Center);
 
         if self.session_active {
-            content = content.push(
-                button(
-                    text("Finish")
-                        .size(26)
-                        .horizontal_alignment(alignment::Horizontal::Center),
-                )
-                .width(Length::Fixed(180.0))
-                .height(Length::Fixed(52.0))
-                .on_press(Message::Finish),
-            );
+            if self.confirming_finish {
+                let small = |label: &str, msg: Message| {
+                    button(
+                        text(label.to_string())
+                            .size(22)
+                            .horizontal_alignment(alignment::Horizontal::Center),
+                    )
+                    .width(Length::Fixed(130.0))
+                    .height(Length::Fixed(46.0))
+                    .on_press(msg)
+                };
+
+                content = content.push(text("Save this session?").size(24));
+                content = content.push(
+                    row![
+                        small("Save", Message::ConfirmSave),
+                        small("Discard", Message::Discard),
+                        small("Cancel", Message::CancelFinish),
+                    ]
+                    .spacing(12),
+                );
+            } else {
+                content = content.push(
+                    button(
+                        text("Finish")
+                            .size(26)
+                            .horizontal_alignment(alignment::Horizontal::Center),
+                    )
+                    .width(Length::Fixed(180.0))
+                    .height(Length::Fixed(52.0))
+                    .on_press(Message::Finish),
+                );
+            }
         }
 
         if !self.status.is_empty() {
@@ -588,8 +599,52 @@ impl StudyTimer {
 
         container(panel).padding(20).into()
     }
+
+    // `save` = true writes the session to the file, false throws it away
+    fn finish_session(&mut self, save: bool) {
+        self.is_running = false;
+        self.last_tick = None;
+
+        if !save {
+            self.status = "Session discarded.".to_string();
+        } else if self.session_active && self.session_elapsed.as_secs() >= 1 {
+            let row = SessionRow {
+                date: self.session_started.clone(),
+                person: clean(&self.person_name),
+                name: clean(&self.session_name),
+                session_min: to_minutes(self.session_elapsed),
+                study_min: to_minutes(self.study_elapsed),
+            };
+            self.status = match append_session(&row) {
+                Ok(()) => format!("Session saved to {}.", DATA_FILE),
+                Err(e) => format!("Save failed: {}", e),
+            };
+            self.history = load_sessions();
+        } else {
+            self.status = "Nothing to save yet.".to_string();
+        }
+
+        self.session_active = false;
+        self.session_elapsed = Duration::from_secs(0);
+        self.study_elapsed = Duration::from_secs(0);
+        self.completed = 0;
+        self.set_mode(Mode::Study);
+    }
+
+    fn begin_session(&mut self) {
+        self.session_active = true;
+        self.session_started = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
+        self.session_elapsed = Duration::from_secs(0);
+        self.study_elapsed = Duration::from_secs(0);
+        self.completed = 0;
+        self.status.clear();
+        self.set_mode(Mode::Study);
+    }
 }
 
+// Clean user text before saving it:
+// replace '|' and line breaks with spaces (because '|' separates columns in the file),
+// trim spaces, and use "Unknown" if nothing is left
 fn clean(value: &str) -> String {
     let v = value.replace(['|', '\n', '\r'], " ");
     let v = v.trim();
